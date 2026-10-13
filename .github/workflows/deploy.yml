@@ -1,0 +1,35 @@
+name: Deploy Radar CNPJ — Locaweb
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: radarcnpj-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar lftp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+      - name: Publicar site
+        env:
+          FTP_HOST: ${{ secrets.HOST }}
+          FTP_USER: ${{ secrets.USER }}
+          FTP_PASS: ${{ secrets.PASS }}
+        run: |
+          test -n "$FTP_HOST" && test -n "$FTP_USER" && test -n "$FTP_PASS"
+          lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<'LFTP'
+          set ftp:passive-mode true
+          set ftp:ssl-allow no
+          set net:max-retries 2
+          mirror --reverse --verbose --only-newer ./site/ ./public_html/radarcnpj/
+          bye
+          LFTP
