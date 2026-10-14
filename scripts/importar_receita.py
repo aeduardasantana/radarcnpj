@@ -6,7 +6,7 @@ Ex.: python scripts/importar_receita.py --directory /dados/receita/2026-09 --com
 Ou:  python scripts/importar_receita.py --source-url URL_DIRETORIO_OFICIAL --competencia 2026-09
 Credenciais por variáveis RADAR_DB_HOST, RADAR_DB_NAME, RADAR_DB_USER, RADAR_DB_PASSWORD.
 """
-import argparse, csv, io, os, re, sys, urllib.parse, urllib.request, zipfile
+import argparse, csv, io, os, re, sys, urllib.parse, urllib.request, zipfile, xml.etree.ElementTree as ET
 from pathlib import Path
 from html.parser import HTMLParser
 import pymysql
@@ -17,6 +17,47 @@ class Links(HTMLParser):
         if tag=="a":
             href=dict(attrs).get("href","")
             if href.lower().endswith(".zip"): self.links.append(href)
+
+# Compartilhamento público Nextcloud da Receita; listar diretórios via WebDAV.
+RECEITA_PUBLIC_DAV="https://arquivos.receitafederal.gov.br/public.php/dav/files/YggdBLfdninEJX9/"
+def dav_request(url, method="PROPFIND"):
+    token="YggdBLfdninEJX9"
+    import base64
+    authorization=base64.b64encode((token+":").encode()).decode()
+    request=urllib.request.Request(url,method=method,headers={"Authorization":"Basic "+authorization,"Depth":"1","User-Agent":"RadarCNPJ/1.0"})
+    with urllib.request.urlopen(request,timeout=90) as response:return response.read()
+def dav_entries(url):
+    root=ET.fromstring(dav_request(url))
+    ns={"d":"DAV:"}
+    items=[]
+    for entry in root.findall(".//d:response",ns):
+        href=entry.findtext("d:href",default="",namespaces=ns)
+        if href.rstrip("/")==urllib.parse.urlparse(url).path.rstrip("/"):continue
+        collection=entry.find(".//d:resourcetype/d:collection",ns) is not None
+        items.append((urllib.parse.urljoin(url,href),collection))
+    return items
+def fetch_official_dav(month, destination):
+    if not re.fullmatch(r"20\\d{2}-\\d{2}",month):raise ValueError("Competência deve ser AAAA-MM.")
+    destination.mkdir(parents=True,exist_ok=True)
+    months=dav_entries(RECEITA_PUBLIC_DAV)
+    matching=[url for url,is_dir in months if is_dir and urllib.parse.unquote(url).rstrip("/").endswith("/"+month)]
+    if not matching:raise RuntimeError("Competência "+month+" não encontrada na pasta pública. Verifique publicação e acesso WebDAV.")
+    selected=dav_entries(matching[0])
+    files=[u for u,is_dir in selected if not is_dir and urllib.parse.urlparse(u).path.lower().endswith(".zip")]
+    if not files:raise RuntimeError("Nenhum ZIP disponível na competência "+month)
+    for url in files:
+        name=Path(urllib.parse.unquote(urllib.parse.urlparse(url).path)).name
+        if not re.search(r"(empre|estabele|simples|municip|cnae)",name,re.I):continue
+        dest=destination/name
+        if dest.exists() and dest.stat().st_size>0:continue
+        print("Baixando Receita/WebDAV:",name,flush=True)
+        import base64
+        auth=base64.b64encode(b"YggdBLfdninEJX9:").decode()
+        req=urllib.request.Request(url,headers={"Authorization":"Basic "+auth,"User-Agent":"RadarCNPJ/1.0"})
+        partial=dest.with_name(dest.name+".part")
+        with urllib.request.urlopen(req,timeout=180) as res,partial.open("wb") as out:
+            while chunk:=res.read(1024*1024):out.write(chunk)
+        partial.replace(dest)
 
 def fetch_archives(source, destination):
     destination.mkdir(parents=True, exist_ok=True)
@@ -70,7 +111,7 @@ def kind_from_name(filename):
 def run(args):
     db=pymysql.connect(host=os.environ["RADAR_DB_HOST"],user=os.environ["RADAR_DB_USER"],password=os.environ["RADAR_DB_PASSWORD"],database=os.environ["RADAR_DB_NAME"],charset="utf8mb4",autocommit=False,read_timeout=180,write_timeout=180)
     directory=Path(args.directory)
-    if args.source_url:fetch_archives(args.source_url,directory)
+    if args.receita_webdav:fetch_official_dav(args.competencia,directory)\n    elif args.source_url:fetch_archives(args.source_url,directory)
     files=sorted(directory.glob("*.zip"))
     selected=[(kind_from_name(p.name),p) for p in files]
     selected=[(k,p) for k,p in selected if k]
@@ -113,4 +154,4 @@ def run(args):
         db.commit();raise
     finally:db.close()
 if __name__=="__main__":
-    p=argparse.ArgumentParser();p.add_argument("--directory",default="./receita");p.add_argument("--source-url");p.add_argument("--competencia",required=True);run(p.parse_args())
+    p=argparse.ArgumentParser();p.add_argument("--directory",default="./receita");p.add_argument("--source-url");p.add_argument("--receita-webdav",action="store_true");p.add_argument("--competencia",required=True);run(p.parse_args())
