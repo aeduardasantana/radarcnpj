@@ -2,7 +2,7 @@
 declare(strict_types=1);
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store');
-$configPath = dirname(__DIR__, 2) . '/radarcnpj-config.php';
+$configPath = dirname(__DIR__, 3) . '/radarcnpj-config.php';
 if (!is_file($configPath)) {
  http_response_code(503); header('Content-Type: application/json; charset=utf-8');
  echo json_encode(['error'=>'Banco não configurado. Configure radarcnpj-config.php fora da pasta pública.']); exit;
@@ -45,7 +45,7 @@ if ($v=$g('simples')) {if(!in_array($v,['S','N'],true)) bad();add($filters,$para
 foreach(['abertura_de'=>'>=','abertura_ate'=>'<='] as $field=>$op) if($v=$g($field)){
  if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$v)||!strtotime($v))bad();add($filters,$params,"s.data_inicio $op :$field",$field,$v);
 }
-if($v=$g('nome')) {if(mb_strlen($v)>120)bad();add($filters,$params,'(e.razao_social LIKE :nome OR s.nome_fantasia LIKE :nome)','nome','%'.$v.'%');}
+if($v=$g('nome')) {if(mb_strlen($v)>120)bad();$filters[]='(e.razao_social LIKE :nome OR s.nome_fantasia LIKE :nome2)';$params['nome']='%'.$v.'%';$params['nome2']='%'.$v.'%';}
 if($v=$g('cep')) {if(!preg_match('/^\d{2,8}$/',$v))bad();add($filters,$params,'s.cep LIKE :cep','cep',$v.'%');}
 if($v=$g('capital_min')) {if(!is_numeric($v)||floatval($v)<0)bad();add($filters,$params,'e.capital_social >= :capital_min','capital_min',$v);}
 if($v=$g('capital_max')) {if(!is_numeric($v)||floatval($v)<0)bad();add($filters,$params,'e.capital_social <= :capital_max','capital_max',$v);}
