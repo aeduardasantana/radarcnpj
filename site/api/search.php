@@ -33,6 +33,7 @@ function add(array &$filters,array &$params,string $sql,string $name,$value):voi
 }
 if ($v=$g('uf')) {if(!preg_match('/^[A-Z]{2}$/',$v)) bad(); add($filters,$params,'s.uf = :uf','uf',$v);}
 if ($v=$g('municipio_codigo')) {if(!preg_match('/^\d{1,4}$/',$v)) bad();add($filters,$params,'s.municipio_codigo = :municipio','municipio',str_pad($v,4,'0',STR_PAD_LEFT));}
+if ($v=$g('municipio')) {if(mb_strlen($v)>150)bad();add($filters,$params,'m.descricao = :municipio_nome','municipio_nome',$v);}
 if ($v=$g('cnae')) {if(!preg_match('/^\d{2,7}$/',$v)) bad();add($filters,$params,'s.cnae_principal LIKE :cnae','cnae',$v.'%');}
 if ($v=$g('cnae_secundario')) {if(!preg_match('/^\d{2,7}$/',$v)) bad();add($filters,$params,'s.cnae_secundarios LIKE :sec','sec','%'.$v.'%');}
 if ($v=$g('situacao')) {if(!preg_match('/^\d{2}$/',$v)) bad();add($filters,$params,'s.situacao = :situacao','situacao',$v);}
