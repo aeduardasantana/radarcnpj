@@ -61,6 +61,11 @@ if($mode==='metadata') {
  try {$out['latest']=$pdo->query("SELECT competencia,concluido_em,empresas,estabelecimentos,simples FROM radar_cargas WHERE status='complete' ORDER BY concluido_em DESC LIMIT 1")->fetch() ?: null;} catch(Throwable $e){}
  header('Content-Type: application/json; charset=utf-8');echo json_encode($out);exit;
 }
+// Não devolver respostas vazias ou parciais como se fossem cobertura nacional.
+try {
+ $completed=(int)$pdo->query("SELECT COUNT(*) FROM radar_cargas WHERE status='complete' AND estabelecimentos>0")->fetchColumn();
+ if ($completed===0) {http_response_code(503);header('Content-Type: application/json; charset=utf-8');echo json_encode(['error'=>'Nenhuma carga nacional da Receita concluída. O índice ainda não está pronto.']);exit;}
+} catch(Throwable $e) {http_response_code(503);header('Content-Type: application/json; charset=utf-8');echo json_encode(['error'=>'Estrutura de cargas indisponível. Execute o esquema SQL.']);exit;}
 if (!$filters) {http_response_code(400);header('Content-Type: application/json; charset=utf-8');echo json_encode(['error'=>'Defina pelo menos um filtro para evitar pesquisa nacional irrestrita.']);exit;}
 function bindAll(PDOStatement $stmt,array $params):void {foreach($params as $key=>$value)$stmt->bindValue(':'.$key,$value);}
 if ($mode==='export') {
