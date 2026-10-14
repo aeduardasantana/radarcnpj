@@ -56,7 +56,7 @@ def transform(kind,v):
         return (v[0],text(v[1]),text(v[2]),text(v[3]),decimal(v[4]),text(v[5]),text(v[6]))
     if kind=="estabelecimentos":
         if len(v)<30:return None
-        return (v[0]+v[1]+v[2],v[0],text(v[3]),text(v[4]),text(v[5]),dt(v[6]),text(v[7]),text(v[8]),text(v[9]),dt(v[10]),text(v[11]),text(v[12]),text(v[13]),text(v[14]),text(v[15]),text(v[16]),text(v[17]),text(v[18]),text(v[19]),text(v[20]),text(v[21]),text(v[22]),text(v[23]),text(v[24]),dt(v[25]))
+        return (v[0]+v[1]+v[2],v[0],text(v[3]),text(v[4]),text(v[5]),dt(v[6]),text(v[7]),text(v[8]),text(v[9]),dt(v[10]),text(v[11]),text(v[12]),text(v[13]),text(v[14]),text(v[15]),text(v[16]),text(v[17]),text(v[18]),text(v[19]),text(v[20]),text(v[21]) and (v[21].strip()+" "+v[22].strip()).strip(),text(v[23]) and (v[23].strip()+" "+v[24].strip()).strip(),text(v[25]) and (v[25].strip()+" "+v[26].strip()).strip(),text(v[27]),text(v[28]),dt(v[29]))
     if kind=="simples":
         if len(v)<7:return None
         return (v[0],text(v[1]),dt(v[2]),dt(v[3]),text(v[4]),dt(v[5]),dt(v[6]))
